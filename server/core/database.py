@@ -4,10 +4,13 @@ from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker, Session
 from .config import settings
 import logging
+from contextlib import contextmanager
 
 logger = logging.getLogger(__name__)
 
-engine = create_engine(settings.DATABASE_URL)
+SQLALCHEMY_DATABASE_URL = settings.DATABASE_URL
+
+engine = create_engine(SQLALCHEMY_DATABASE_URL)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 Base = declarative_base()
@@ -30,4 +33,18 @@ def init_db() -> None:
     """
     Инициализирует базу данных, создавая все таблицы
     """
-    Base.metadata.create_all(bind=engine) 
+    Base.metadata.create_all(bind=engine)
+
+@contextmanager
+def transaction(db):
+    """
+    Контекстный менеджер для управления транзакциями.
+    Автоматически выполняет commit при успешном выполнении
+    и rollback при возникновении ошибки.
+    """
+    try:
+        yield
+        db.commit()
+    except Exception:
+        db.rollback()
+        raise 

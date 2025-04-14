@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Response, Request
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
 from datetime import timedelta
@@ -7,21 +7,29 @@ from api.deps import get_db
 from core.config import settings
 from api.services.user_service import (
     authenticate_user,
-    create_access_token,
-    create_refresh_token,
     create_user,
     get_user_by_email,
-    get_current_user,
-    refresh_access_token
+    get_current_user
+)
+from api.services.token_service import (
+    create_access_token,
+    create_refresh_token,
+    refresh_access_token,
+    revoke_token
 )
 from schemas.user import UserCreate, User
 from schemas.token import Token
+from fastapi_limiter.depends import RateLimiter
 
 router = APIRouter()
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl=f"{settings.API_V1_STR}/auth/login")
 
 @router.post("/register", response_model=User)
-def register(user: UserCreate, db: Session = Depends(get_db)):
+async def register(
+    user: UserCreate,
+    db: Session = Depends(get_db),
+    _: None = Depends(RateLimiter(times=5, minutes=15))
+):
     db_user = get_user_by_email(db, email=user.email)
     if db_user:
         raise HTTPException(
@@ -31,9 +39,12 @@ def register(user: UserCreate, db: Session = Depends(get_db)):
     return create_user(db=db, user=user)
 
 @router.post("/login", response_model=Token)
-def login(
+async def login(
+    request: Request,
+    response: Response,
     form_data: OAuth2PasswordRequestForm = Depends(),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    _: None = Depends(RateLimiter(times=5, minutes=5))
 ):
     user = authenticate_user(db, form_data.username, form_data.password)
     if not user:
@@ -49,25 +60,62 @@ def login(
     )
     refresh_token = create_refresh_token(data={"sub": user.email})
     
+    response.set_cookie(
+        key="refresh_token",
+        value=refresh_token,
+        httponly=True,
+        secure=True,
+        samesite="strict",
+        max_age=settings.REFRESH_TOKEN_EXPIRE_DAYS * 24 * 60 * 60
+    )
+    
     return {
         "access_token": access_token,
-        "refresh_token": refresh_token,
         "token_type": "bearer"
     }
 
 @router.post("/refresh", response_model=Token)
-def refresh_token(
-    refresh_token: str,
-    db: Session = Depends(get_db)
+async def refresh_token_endpoint(
+    request: Request,
+    response: Response,
+    db: Session = Depends(get_db),
+    _: None = Depends(RateLimiter(times=10, minutes=5))
 ):
-    access_token = refresh_access_token(refresh_token, db)
+    refresh_token = request.cookies.get("refresh_token")
+    if not refresh_token:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Refresh token missing"
+        )
+    
+    new_access_token = refresh_access_token(refresh_token, db)
     return {
-        "access_token": access_token,
+        "access_token": new_access_token,
         "token_type": "bearer"
     }
 
+@router.post("/logout")
+async def logout(
+    request: Request,
+    response: Response,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    refresh_token = request.cookies.get("refresh_token")
+    if refresh_token:
+        revoke_token(refresh_token, db)
+    
+    response.delete_cookie(
+        key="refresh_token",
+        httponly=True,
+        secure=True,
+        samesite="strict"
+    )
+    
+    return {"message": "Successfully logged out"}
+
 @router.get("/me", response_model=User)
-def read_users_me(
+async def read_users_me(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):

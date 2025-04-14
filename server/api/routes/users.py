@@ -4,7 +4,9 @@ from typing import List
 from core.database import get_db
 from api.services.user_service import (
     get_user,
-    get_current_user
+    get_current_user,
+    update_user,
+    delete_user
 )
 from schemas.user import User, UserUpdate
 
@@ -28,4 +30,20 @@ def read_user(
 def read_users_me(
     current_user: User = Depends(get_current_user)
 ):
-    return current_user 
+    return current_user
+
+@router.put("/me", response_model=User)
+def update_user_me(
+    user_update: UserUpdate,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    return update_user(db=db, user_id=current_user.id, user_update=user_update)
+
+@router.delete("/me")
+def delete_user_me(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    delete_user(db=db, user_id=current_user.id)
+    return {"message": "User deleted successfully"} 
