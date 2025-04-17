@@ -1,14 +1,21 @@
+import sys
+import os
+
+# Добавляем путь к проекту
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from api.routes import (
+from core.config import settings
+from core.database import init_db
+from api.routes.auth import (
     auth_router,
     users_router,
     projects_router,
     matching_router,
     notifications_router
 )
-from core.config import settings
-from core.database import init_db
 
 app = FastAPI(
     title="Project Management API",

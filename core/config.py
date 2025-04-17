@@ -1,6 +1,7 @@
 from typing import Dict, Any, Optional
 from pydantic_settings import BaseSettings
 from pydantic import Field
+from typing import List
 import os
 
 class Settings(BaseSettings):
@@ -8,6 +9,17 @@ class Settings(BaseSettings):
     VERSION: str = "1.0.0"
     API_V1_STR: str = "/api/v1"
     
+     # Token refresh lifetime
+    REFRESH_TOKEN_EXPIRE_DAYS: int = Field(7, env="REFRESH_TOKEN_EXPIRE_DAYS")
+
+    # Rate limiting
+    RATE_LIMIT_PER_MINUTE: int = Field(60, env="RATE_LIMIT_PER_MINUTE")
+
+    DB_ECHO: bool = Field(False, env="DB_ECHO")
+
+    # Server port
+    PORT: int = Field(8000, env="PORT")
+
     # PostgreSQL
     POSTGRES_SERVER: str = Field(..., env='POSTGRES_SERVER')
     POSTGRES_USER: str = Field(..., env='POSTGRES_USER')
@@ -26,7 +38,7 @@ class Settings(BaseSettings):
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
     
     # CORS
-    BACKEND_CORS_ORIGINS: list = ["*"]
+    BACKEND_CORS_ORIGINS: List[str] = Field(["*"], env="BACKEND_CORS_ORIGINS")
     
     # Database
     SQLALCHEMY_DATABASE_URI: Optional[str] = None
@@ -70,3 +82,5 @@ class Settings(BaseSettings):
         return f"postgresql://{self.POSTGRES_USER}:{self.POSTGRES_PASSWORD}@{self.POSTGRES_SERVER}:{self.POSTGRES_PORT}/{self.POSTGRES_DB}"
 
 settings = Settings() 
+print("BACKEND_CORS_ORIGINS from env:", os.getenv("BACKEND_CORS_ORIGINS"))
+print("Parsed BACKEND_CORS_ORIGINS:", settings.BACKEND_CORS_ORIGINS)

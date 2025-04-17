@@ -1,5 +1,5 @@
-from typing import List, Optional, Dict, Any
-from pydantic import BaseSettings, PostgresDsn, validator, AnyHttpUrl
+from typing import List, Optional, Dict, Any, Union
+from pydantic import BaseSettings, AnyHttpUrl, AnyUrl, validator
 import secrets
 from functools import lru_cache
 import os
@@ -15,34 +15,26 @@ class Settings(BaseSettings):
     ALGORITHM: str = "HS256"
     
     # CORS
-    BACKEND_CORS_ORIGINS: List[AnyHttpUrl] = ["http://localhost:3000"]
-    
+    BACKEND_CORS_ORIGINS: List[AnyHttpUrl] = []
+
     # Database
     POSTGRES_SERVER: str = "localhost"
     POSTGRES_USER: str = "postgres"
     POSTGRES_PASSWORD: str = "postgres"
     POSTGRES_DB: str = "project_finder"
-    DATABASE_URL: Optional[PostgresDsn] = None
+    DATABASE_URL: Optional[AnyUrl] = None
 
     @validator("BACKEND_CORS_ORIGINS", pre=True)
     def assemble_cors_origins(cls, v: Union[str, List[str]]) -> Union[List[str], str]:
-        if isinstance(v, str) and not v.startswith("["):
+        if isinstance(v, str):
             return [i.strip() for i in v.split(",")]
-        elif isinstance(v, (list, str)):
-            return v
-        raise ValueError(v)
+        return v
 
     @validator("DATABASE_URL", pre=True)
     def assemble_db_connection(cls, v: Optional[str], values: Dict[str, Any]) -> Any:
         if isinstance(v, str):
             return v
-        return PostgresDsn.build(
-            scheme="postgresql",
-            user=values.get("POSTGRES_USER"),
-            password=values.get("POSTGRES_PASSWORD"),
-            host=values.get("POSTGRES_SERVER"),
-            path=f"/{values.get('POSTGRES_DB') or ''}",
-        )
+        return f"postgresql://{values.get('POSTGRES_USER')}:{values.get('POSTGRES_PASSWORD')}@{values.get('POSTGRES_SERVER')}/{values.get('POSTGRES_DB')}"
     
     # Redis
     REDIS_HOST: str = "localhost"
@@ -70,7 +62,6 @@ class ProductionSettings(Settings):
             raise ValueError("SECRET_KEY must be at least 32 characters long")
         return v
 
-    # Переопределяем настройки для production
     BACKEND_CORS_ORIGINS: List[AnyHttpUrl] = ["https://project-finder.com"]
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 15
     RATE_LIMIT_TIMES: int = 3
@@ -81,4 +72,4 @@ def get_settings():
     env = os.getenv("ENV", "development")
     if env == "production":
         return ProductionSettings()
-    return DevelopmentSettings() 
+    return DevelopmentSettings()

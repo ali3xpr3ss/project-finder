@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta
+'''from datetime import datetime, timedelta
 from typing import Optional, List, Dict, Any
 from sqlalchemy.orm import Session
 from sqlalchemy import or_
@@ -219,3 +219,57 @@ class UserService:
             "skill_distribution": skill_counts,
             "role_distribution": role_counts
         } 
+        '''
+from datetime import datetime, timedelta
+from typing import Optional, List, Dict, Any
+from sqlalchemy.orm import Session
+from sqlalchemy import or_
+from fastapi import HTTPException, status
+from models.user import User
+from schemas.user import UserCreate, UserUpdate
+from core.security import verify_password, get_password_hash
+from core.config import settings
+
+class UserService:
+    def __init__(self, db: Session):
+        self.db = db
+
+    def authenticate_user(self, username: str, password: str):
+        # Отложенный импорт для устранения циклического импорта
+        from api.services.user_service import get_user_by_email  
+        user = get_user_by_email(self.db, username)
+        if not user or not verify_password(password, user.password):
+            raise HTTPException(status_code=401, detail="Invalid credentials")
+        return user
+
+    def create_user(self, user_create: UserCreate):
+        # Логика создания пользователя
+        hashed_password = get_password_hash(user_create.password)
+        db_user = User(email=user_create.email, password=hashed_password, full_name=user_create.full_name)
+        self.db.add(db_user)
+        self.db.commit()
+        self.db.refresh(db_user)
+        return db_user
+
+    def get_user_by_email(self, email: str):
+        return self.db.query(User).filter(User.email == email).first()
+
+    def update_user(self, user_id: int, user_update: UserUpdate):
+        db_user = self.db.query(User).filter(User.id == user_id).first()
+        if not db_user:
+            raise HTTPException(status_code=404, detail="User not found")
+        if user_update.email:
+            db_user.email = user_update.email
+        if user_update.full_name:
+            db_user.full_name = user_update.full_name
+        self.db.commit()
+        self.db.refresh(db_user)
+        return db_user
+
+    def delete_user(self, user_id: int):
+        db_user = self.db.query(User).filter(User.id == user_id).first()
+        if not db_user:
+            raise HTTPException(status_code=404, detail="User not found")
+        self.db.delete(db_user)
+        self.db.commit()
+        return {"message": "User deleted successfully"}
