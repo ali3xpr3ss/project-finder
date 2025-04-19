@@ -1,4 +1,4 @@
-from server.api.routes.auth import (
+from .routes import (
     auth_router,
     users_router,
     projects_router,

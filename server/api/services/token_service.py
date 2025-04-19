@@ -6,7 +6,6 @@ from jose import JWTError, jwt
 from core.config import settings
 from models.token import TokenBlacklist
 from redis import Redis
-from core.config import settings
 
 redis = Redis(
     host=settings.REDIS_HOST,
@@ -28,6 +27,23 @@ def create_token(data: dict, expires_delta: Optional[timedelta] = None) -> str:
         algorithm=settings.ALGORITHM
     )
     return encoded_jwt
+
+def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -> str:
+    return create_token(data, expires_delta)
+
+def create_refresh_token(data: dict) -> str:
+    expires_delta = timedelta(days=settings.REFRESH_TOKEN_EXPIRE_DAYS)
+    return create_token(data, expires_delta)
+
+def refresh_access_token(refresh_token: str, db: Session) -> str:
+    if is_token_blacklisted(refresh_token):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Refresh token is blacklisted"
+        )
+    payload = verify_token(refresh_token)
+    access_token_expires = timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
+    return create_access_token({"sub": payload["sub"]}, access_token_expires)
 
 def verify_token(token: str) -> dict:
     try:
@@ -73,4 +89,4 @@ def revoke_token(token: str, db: Session) -> None:
         blacklisted_at=now
     )
     db.add(db_token)
-    db.commit() 
+    db.commit()

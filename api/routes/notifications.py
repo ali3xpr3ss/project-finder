@@ -6,7 +6,9 @@ from services.cache_service import CacheService
 from services.matching_service import MatchingService
 from services.notification_service import NotificationService
 from models.user import User
-from api.deps import get_current_user
+from api.services.user_service import get_current_user
+#from api.deps import get_current_user
+from api.deps import get_db
 
 router = APIRouter()
 

@@ -46,4 +46,4 @@ def delete_user_me(
     db: Session = Depends(get_db)
 ):
     delete_user(db=db, user_id=current_user.id)
-    return {"message": "User deleted successfully"} 
+    return {"message": "User deleted successfully"}

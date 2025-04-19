@@ -1,5 +1,5 @@
 from typing import List, Dict, Optional
-from fastapi import APIRouter, Depends, HTTPException, status, Query
+from fastapi import APIRouter, Depends, HTTPException, status, Path, Query
 from sqlalchemy.orm import Session
 from api.deps import get_db
 from api.services.user_service import get_current_user
@@ -22,18 +22,12 @@ router = APIRouter()
 def search_projects(
     query: str = Query(..., min_length=1, max_length=100),
     skills: Optional[List[str]] = Query(None, min_items=1, max_items=20),
-    status: Optional[str] = Query(None, regex="^(active|completed|pending)$"),
+    status: Optional[str] = Query(None, pattern="^(active|completed|pending)$"),
     skip: int = Query(0, ge=0),
     limit: int = Query(20, ge=1, le=100),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    """
-    Поиск проектов по:
-    - текстовому запросу (в названии и описании)
-    - требуемым навыкам
-    - статусу проекта
-    """
     filters = ProjectSearch(
         query=query,
         skills=skills,
@@ -61,7 +55,7 @@ def create_new_project(
 
 @router.get("/{project_id}", response_model=Project)
 def read_project(
-    project_id: int = Query(..., ge=1),
+    project_id: int = Path(..., ge=1),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
@@ -76,7 +70,7 @@ def read_project(
 @router.put("/{project_id}", response_model=Project)
 def update_project_details(
     project_update: ProjectUpdate,
-    project_id: int = Query(..., ge=1),
+    project_id: int = Path(..., ge=1),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
@@ -96,7 +90,7 @@ def update_project_details(
 
 @router.delete("/{project_id}")
 def delete_project_by_id(
-    project_id: int = Query(..., ge=1),
+    project_id: int = Path(..., ge=1),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
@@ -113,4 +107,4 @@ def delete_project_by_id(
                 detail="Not enough permissions"
             )
         delete_project(db=db, project_id=project_id)
-        return {"message": "Project deleted successfully"} 
+        return {"message": "Project deleted successfully"}

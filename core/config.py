@@ -1,8 +1,10 @@
 from typing import Dict, Any, Optional
 from pydantic_settings import BaseSettings
-from pydantic import Field
+from pydantic import  AnyHttpUrl, AnyUrl, validator, Field
 from typing import List
 import os
+
+print("BACKEND_CORS_ORIGINS from env:", os.getenv("BACKEND_CORS_ORIGINS"))
 
 class Settings(BaseSettings):
     PROJECT_NAME: str = "Project Matching API"
@@ -38,7 +40,21 @@ class Settings(BaseSettings):
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
     
     # CORS
-    BACKEND_CORS_ORIGINS: List[str] = Field(["*"], env="BACKEND_CORS_ORIGINS")
+    #BACKEND_CORS_ORIGINS: List[str] = Field(default=["http://localhost:3000", "http://localhost:8000"])
+    #BACKEND_CORS_ORIGINS: List[str] = ["http://localhost:3000", "http://localhost:8000"]
+    #BACKEND_CORS_ORIGINS: List[str] = Field(..., env="BACKEND_CORS_ORIGINS")
+    BACKEND_CORS_ORIGINS: List[str] = Field(default=["http://localhost:3000"], env="BACKEND_CORS_ORIGINS")
+    @validator("BACKEND_CORS_ORIGINS", pre=True)
+    def assemble_cors_origins(cls, v: Any) -> List[str]:
+        if isinstance(v, str):
+            # Убираем скобки и кавычки, если они есть
+            v = v.strip()
+            if v.startswith("[") and v.endswith("]"):
+                v = v[1:-1]
+            return [i.strip().strip('"').strip("'") for i in v.split(",") if i.strip()]
+        elif isinstance(v, list):
+            return v
+        return []
     
     # Database
     SQLALCHEMY_DATABASE_URI: Optional[str] = None
@@ -82,5 +98,4 @@ class Settings(BaseSettings):
         return f"postgresql://{self.POSTGRES_USER}:{self.POSTGRES_PASSWORD}@{self.POSTGRES_SERVER}:{self.POSTGRES_PORT}/{self.POSTGRES_DB}"
 
 settings = Settings() 
-print("BACKEND_CORS_ORIGINS from env:", os.getenv("BACKEND_CORS_ORIGINS"))
-print("Parsed BACKEND_CORS_ORIGINS:", settings.BACKEND_CORS_ORIGINS)
+

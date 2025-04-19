@@ -4,12 +4,11 @@ import os
 # Добавляем путь к проекту
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
-
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from core.config import settings
 from core.database import init_db
-from api.routes.auth import (
+from api import (
     auth_router,
     users_router,
     projects_router,
@@ -18,10 +17,10 @@ from api.routes.auth import (
 )
 
 app = FastAPI(
-    title="Project Management API",
+    title=settings.PROJECT_NAME,
     description="""
     API для управления проектами и участниками.
-    
+
     ## Возможности
     * 🔐 Аутентификация и авторизация пользователей
     * 👥 Управление профилями участников
@@ -29,14 +28,14 @@ app = FastAPI(
     * 🔍 Семантический поиск проектов и анкет
     * 🤝 Сопоставление проектов и участников
     * 🔔 Система уведомлений
-    
+
     ## Основные эндпоинты
     * `/api/auth` - аутентификация и токены
     * `/api/users` - управление пользователями
     * `/api/projects` - управление проектами
     * `/api/matching` - сопоставление проектов и участников
     * `/api/notifications` - управление уведомлениями
-    
+
     ## Технологии
     * FastAPI
     * SQLAlchemy
@@ -46,7 +45,7 @@ app = FastAPI(
     * FAISS
     * Redis
     """,
-    version="1.0.0",
+    version=settings.VERSION,
     docs_url="/api/docs",
     redoc_url="/api/redoc",
     openapi_url="/api/openapi.json"
@@ -55,7 +54,7 @@ app = FastAPI(
 # Настройка CORS
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=["http://localhost:3000"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -75,13 +74,16 @@ app.include_router(notifications_router, prefix=f"{settings.API_V1_STR}/notifica
 async def root():
     """
     Корневой эндпоинт API.
-    
     Возвращает приветственное сообщение и базовую информацию о API.
     """
     return {
         "message": "Welcome to Project Management API",
-        "version": "1.0.0",
+        "version": settings.VERSION,
         "docs_url": "/api/docs",
         "redoc_url": "/api/redoc",
         "openapi_url": "/api/openapi.json"
-    } 
+    }
+@app.options("/{path:path}")
+async def preflight_handler():
+    return {"message": "Preflight request allowed"}
+    

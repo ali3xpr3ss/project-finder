@@ -93,6 +93,29 @@ def authenticate_user(db: Session, email: str, password: str) -> Optional[User]:
         return None
     return user
 
+def update_user(db: Session, user_id: int, user_update: UserUpdate) -> User:
+    db_user = get_user(db, user_id)
+    if not db_user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="User not found"
+        )
+    for key, value in user_update.dict(exclude_unset=True).items():
+        setattr(db_user, key, value)
+    db.commit()
+    db.refresh(db_user)
+    return db_user
+
+def delete_user(db: Session, user_id: int) -> None:
+    db_user = db.query(User).filter(User.id == user_id).first()
+    if not db_user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="User not found"
+        )
+    db.delete(db_user)
+    db.commit()
+    
 async def get_current_user(
     db: Session = Depends(get_db),
     token: str = Depends(oauth2_scheme)

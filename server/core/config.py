@@ -1,75 +1,70 @@
-from typing import List, Optional, Dict, Any, Union
-from pydantic import BaseSettings, AnyHttpUrl, AnyUrl, validator
-import secrets
-from functools import lru_cache
+from typing import List, Optional, Dict, Any
+from pydantic_settings import BaseSettings
+from pydantic import AnyHttpUrl, Field, validator
 import os
 
 class Settings(BaseSettings):
+    PROJECT_NAME: str = "Project Matching API"
+    VERSION: str = "1.0.0"
     API_V1_STR: str = "/api/v1"
-    PROJECT_NAME: str = "Project Finder"
     
-    # Security
-    SECRET_KEY: str = secrets.token_urlsafe(32)
-    ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
-    REFRESH_TOKEN_EXPIRE_DAYS: int = 7
-    ALGORITHM: str = "HS256"
-    
-    # CORS
-    BACKEND_CORS_ORIGINS: List[AnyHttpUrl] = []
+    DATABASE_URL: Optional[str] = None
 
-    # Database
-    POSTGRES_SERVER: str = "localhost"
-    POSTGRES_USER: str = "postgres"
-    POSTGRES_PASSWORD: str = "postgres"
-    POSTGRES_DB: str = "project_finder"
-    DATABASE_URL: Optional[AnyUrl] = None
+    REFRESH_TOKEN_EXPIRE_DAYS: int = Field(7, env="REFRESH_TOKEN_EXPIRE_DAYS")
+    RATE_LIMIT_PER_MINUTE: int = Field(60, env="RATE_LIMIT_PER_MINUTE")
+    DB_ECHO: bool = Field(False, env="DB_ECHO")
+    PORT: int = Field(8000, env="PORT")
 
-    @validator("BACKEND_CORS_ORIGINS", pre=True)
-    def assemble_cors_origins(cls, v: Union[str, List[str]]) -> Union[List[str], str]:
-        if isinstance(v, str):
-            return [i.strip() for i in v.split(",")]
-        return v
+    # PostgreSQL
+    POSTGRES_SERVER: str = Field(..., env='POSTGRES_SERVER')
+    POSTGRES_USER: str = Field(..., env='POSTGRES_USER')
+    POSTGRES_PASSWORD: str = Field(..., env='POSTGRES_PASSWORD')
+    POSTGRES_DB: str = Field(..., env='POSTGRES_DB')
+    POSTGRES_PORT: int = Field(5432, env='POSTGRES_PORT')
 
-    @validator("DATABASE_URL", pre=True)
-    def assemble_db_connection(cls, v: Optional[str], values: Dict[str, Any]) -> Any:
-        if isinstance(v, str):
-            return v
-        return f"postgresql://{values.get('POSTGRES_USER')}:{values.get('POSTGRES_PASSWORD')}@{values.get('POSTGRES_SERVER')}/{values.get('POSTGRES_DB')}"
-    
     # Redis
-    REDIS_HOST: str = "localhost"
-    REDIS_PORT: int = 6379
-    
-    # Rate Limiting
-    RATE_LIMIT_TIMES: int = 5
-    RATE_LIMIT_MINUTES: int = 5
+    REDIS_HOST: str = Field("localhost", env='REDIS_HOST')
+    REDIS_PORT: int = Field(6379, env='REDIS_PORT')
+    REDIS_DB: int = Field(0, env='REDIS_DB')
+
+    # JWT
+    SECRET_KEY: str = Field(..., env='SECRET_KEY')
+    ALGORITHM: str = "HS256"
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
+
+    # CORS
+    BACKEND_CORS_ORIGINS: List[AnyHttpUrl] = Field(default_factory=list, env="BACKEND_CORS_ORIGINS")
+
+    # Cache
+    CACHE_EXPIRE_MINUTES: int = 60
+
+    # Email
+    SMTP_TLS: bool = True
+    SMTP_PORT: Optional[int] = None
+    SMTP_HOST: Optional[str] = None
+    SMTP_USER: Optional[str] = None
+    SMTP_PASSWORD: Optional[str] = None
+    EMAILS_FROM_EMAIL: Optional[str] = None
+    EMAILS_FROM_NAME: Optional[str] = None
+
+    # Matching
+    MIN_MATCH_SCORE: float = 0.5
+    MAX_MATCHES: int = 10
 
     class Config:
         case_sensitive = True
         env_file = ".env"
 
-class DevelopmentSettings(Settings):
-    class Config:
-        env_file = ".env.development"
+    @validator("BACKEND_CORS_ORIGINS", pre=True)
+    def assemble_cors_origins(cls, v):
+        if isinstance(v, str) and v:
+            # Разделяем по запятой и убираем пробелы
+            return [i.strip() for i in v.split(",")]
+        elif isinstance(v, list):
+            return v
+        return []
 
-class ProductionSettings(Settings):
-    class Config:
-        env_file = ".env.production"
+    def get_database_url(self) -> str:
+        return f"postgresql://{self.POSTGRES_USER}:{self.POSTGRES_PASSWORD}@{self.POSTGRES_SERVER}:{self.POSTGRES_PORT}/{self.POSTGRES_DB}"
 
-    @validator("SECRET_KEY", pre=True)
-    def validate_secret_key(cls, v: str) -> str:
-        if len(v) < 32:
-            raise ValueError("SECRET_KEY must be at least 32 characters long")
-        return v
-
-    BACKEND_CORS_ORIGINS: List[AnyHttpUrl] = ["https://project-finder.com"]
-    ACCESS_TOKEN_EXPIRE_MINUTES: int = 15
-    RATE_LIMIT_TIMES: int = 3
-    RATE_LIMIT_MINUTES: int = 5
-
-@lru_cache()
-def get_settings():
-    env = os.getenv("ENV", "development")
-    if env == "production":
-        return ProductionSettings()
-    return DevelopmentSettings()
+settings = Settings()

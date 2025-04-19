@@ -7,7 +7,7 @@ class ProjectBase(BaseModel):
     title: constr(min_length=1, max_length=100)
     description: constr(min_length=10, max_length=2000)
     required_skills: List[str] = Field(default_factory=list, min_items=1)
-    status: str = Field(regex="^(active|completed|pending)$")
+    status: str = Field(pattern="^(active|completed|pending)$")
 
 class ProjectCreate(ProjectBase):
     """Схема для создания проекта"""
@@ -19,14 +19,14 @@ class ProjectUpdate(ProjectBase):
     title: Optional[constr(min_length=1, max_length=100)] = None
     description: Optional[constr(min_length=10, max_length=2000)] = None
     required_skills: Optional[List[str]] = None
-    status: Optional[str] = Field(None, regex="^(active|completed|pending)$")
+    status: Optional[str] = Field(None, pattern="^(active|completed|pending)$")
     team_size: Optional[int] = Field(None, gt=0, lt=100)
     deadline: Optional[datetime] = None
 
 class ProjectSearch(BaseModel):
     query: constr(min_length=1, max_length=100)
     skills: Optional[List[str]] = Field(None, min_items=1)
-    status: Optional[str] = Field(None, regex="^(active|completed|pending)$")
+    status: Optional[str] = Field(None, pattern="^(active|completed|pending)$")
 
 class Project(ProjectBase):
     """Схема проекта"""
@@ -38,4 +38,4 @@ class Project(ProjectBase):
     is_liked: bool = False
 
     class Config:
-        orm_mode = True 
+        from_attributes = True
